@@ -3,7 +3,8 @@
 class Tile:
     """
         This class is used to create tiles for the grid. Parameters for
-        initialisation: x(int), y(int), land_cover(string), viewed(bool).
+        initialisation: x(int), y(int), land_cover(string). Optional
+        parameter: viewed(bool).
     """
 
     def __init__(self, x, y, land_cover, viewed = False):

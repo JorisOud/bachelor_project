@@ -4,7 +4,6 @@ import haversine as hs
 import hexutil
 import numpy as np
 
-from itertools import chain
 from collections import Counter
 from PIL import Image
 
@@ -75,9 +74,6 @@ class Map():
 
             # Calculates the average colour of the pixel area.
             pixel_area = I[r[0][1]:r[3][1],r[0][0]:r[1][0]]
-            # print(pixel_area)
-            # print("zero:")
-            # aaa = [j for i in pixel_area for j in i]
             colour = np.average(I[r[0][1]:r[3][1],r[0][0]:r[1][0]], axis=(0,1))
             colour = tuple(colour.astype(int))
 

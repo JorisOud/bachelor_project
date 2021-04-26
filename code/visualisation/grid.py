@@ -76,10 +76,6 @@ class Grid(QtWidgets.QWidget):
         """Computes the hexagon at the given screen position."""
         return self.hexgrid.hex_at_coordinate(pos.x(), pos.y())
 
-    def mousePressEvent(self, event):
-        """TODO Selects the hexagon that is clicked."""
-        hexagon = self.hexagon_of_pos(event.pos())
-
     def adjust_res(self, factor):
         """Adjusts the visual pixel size of the hexagons if possible."""
         old_res = self.res

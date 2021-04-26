@@ -4,7 +4,7 @@ from .grid import Grid
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class Grid_Window(QtWidgets.QMainWindow):
+class Model(QtWidgets.QMainWindow):
     """Contains the grid as a QGraphicsView for zoom and scroll functions.
 
     It allows for the grid to be zoomed in and out. This changes
@@ -31,7 +31,9 @@ class Grid_Window(QtWidgets.QMainWindow):
     factor = 2
 
     def __init__(self, parent=None):
-        super(Grid_Window, self).__init__(parent)
+        super(Model, self).__init__(parent)
+        self.resize(800, 600)
+        self.setWindowTitle("Grid-Based Movement Model")
 
         self.scene = QtWidgets.QGraphicsScene(self)
         self.view = QtWidgets.QGraphicsView(self.scene)
@@ -82,7 +84,7 @@ class Grid_Window(QtWidgets.QMainWindow):
         center_hex = self.grid.hexagon_at_center()
 
         # Only zooms in if allowed.
-        if not self.grid.adjust_res(Grid_Window.factor):
+        if not self.grid.adjust_res(Model.factor):
             return False
 
         self.grid.update_size()
@@ -94,7 +96,7 @@ class Grid_Window(QtWidgets.QMainWindow):
         center_hex = self.grid.hexagon_at_center()
 
         # Only zooms out if allowed.
-        if not self.grid.adjust_res(-Grid_Window.factor):
+        if not self.grid.adjust_res(-Model.factor):
             return False
 
         self.grid.update_size()

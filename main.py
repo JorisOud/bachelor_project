@@ -1,6 +1,6 @@
 import sys
 
-from code.classes.model import Model
+from code.visualisation.model import Model
 from PyQt5 import QtWidgets
 
 

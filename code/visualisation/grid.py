@@ -1,8 +1,7 @@
 import hexutil
 
-from ..classes.map import Map
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+from ..classes.map import Map
 
 class Grid(QtWidgets.QWidget):
     """Represents the visual hexagonal grid.
@@ -125,6 +124,7 @@ class Grid(QtWidgets.QWidget):
                     [QtCore.QPoint(*corner) for corner in hexgrid.corners(hexagon)])
 
                 tile = self.map.get_tile(hexagon)
+
                 if tile != 5:
                     colour = self.map.land_covers[tile][0]
                     painter.setBrush(QtGui.QBrush(QtGui.QColor(colour[0],

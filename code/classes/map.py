@@ -4,6 +4,7 @@ import haversine as hs
 import hexutil
 import numpy as np
 
+from .hex import Hex_custom
 from collections import Counter
 from PIL import Image
 
@@ -91,14 +92,26 @@ class Map():
 
             # Creates the land cover with a (doubled) coordinate.
             land_cover = [k for k, v in self.land_covers.items() if v[0] == colour][0]
+
             if even == 0:
-                self.tiles[hexutil.Hex(col*2, row)] = land_cover
+                new_hex = Hex_custom(col*2, row)
+                new_hex.add_landcover(land_cover)
+                self.tiles[(col*2, row)] = new_hex
             else:
-                self.tiles[hexutil.Hex(col * 2 + 1, row)] = land_cover
+                new_hex = Hex_custom(col * 2 + 1, row)
+                new_hex.add_landcover(land_cover)
+                self.tiles[(col * 2 + 1, row)] = new_hex
+
 
     def get_tile(self, hexagon):
         """Returns the land cover of the hexagon."""
-        return self.tiles.get(hexagon, 5)
+
+        custom_hex = self.tiles.get((hexagon.x, hexagon.y))
+
+        if not custom_hex:
+            return 5
+
+        return custom_hex.get_landcover()
 
 
 def rectangle_corners(center, w, h):

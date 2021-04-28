@@ -41,18 +41,30 @@ class Map():
         im = Image.open(path)
         I = np.asarray(im)
 
+        # Coordinates of the four corners.
+        self.top_left_coords = (52.36226580, 4.94751107)
+        self.top_right_coords = (52.36226580, 4.95285498)
+        self.bottom_left_coords = (52.35821084, 4.94751107)
+        self.bottom_right_coords = (52.35821084, 4.95285498)
+
         # Calculates the real-life distance between left and right side.
-        loc1 = (52.36226580, 4.94751107)
-        loc2 = (52.36226580, 4.95285408)
+        loc1 = self.top_left_coords
+        loc2 = self.top_right_coords
         distance = hs.haversine(loc1, loc2) * 1000
 
         # The width represents approximately one meter in real-life.
+        # These hexagon dimentions are in number of pixels.
         w = im.size[0] / distance
         size = w / math.sqrt(3)
         h = 2 * size
 
         num_hor = int(im.size[0] / w) + 1
         num_ver = int(im.size[1] / h * 4 / 3) + 1
+
+        # save hexagon dementions in meters
+        self.hex_width = distance / num_hor
+        self.hex_size = self.hex_width / math.sqrt(3)
+        self.hex_height = 2 * self.hex_size
 
         self.num_hor = num_hor
         self.num_ver = num_ver
@@ -102,6 +114,11 @@ class Map():
                 new_hex.add_landcover(land_cover)
                 self.tiles[(col * 2 + 1, row)] = new_hex
 
+        # THIS IS TO TEST LOADING TREES
+        self.load_ribbons("data/boomlokaties_maandagochtend.csv")
+
+        for tree in self.tree_hexagons.values():
+            tree.add_landcover(3)
 
     def get_tile(self, hexagon):
         """Returns the land cover of the hexagon."""
@@ -113,6 +130,65 @@ class Map():
 
         return custom_hex.get_landcover()
 
+    def get_real_coords(self, hex):
+        """Returns the real coordinates of the center of a hexagon."""
+
+        # x coordinate
+        x_difference = self.top_right_coords[1] - self.top_left_coords[1]
+        x_difference_hex = x_difference / self.num_hor
+        x = self.top_left_coords[1] + hex.x / 2 * x_difference_hex
+
+        # y coordinate
+        y_difference = self.top_left_coords[0] - self.bottom_left_coords[0]
+        y_difference_hex = y_difference /self.num_ver
+        y = self.top_left_coords[0] - hex.y * y_difference_hex
+
+        return (y, x)
+
+    def load_ribbons(self, file_name):
+        """file: csv file with tree coordinates.
+        left_top_coords: real world coordinates of helft top hexagon."""
+
+        self.tree_hexagons = {}
+
+        with open(file_name) as file:
+            next(file)
+            for line in file:
+                values = line.split(",")
+                y_real, x_real = float(values[0]), float(values[1])
+
+                # determine y coordinate
+                loc1 = self.top_left_coords
+                loc2 = (y_real, self.top_left_coords[1])
+                dist_from_top = hs.haversine(loc1, loc2) * 1000
+                y_model = int(round(dist_from_top / self.hex_height * 3/4))
+
+                # determine x coordinate
+                loc2 = (self.top_left_coords[0], x_real)
+                dist_from_left = hs.haversine(loc1, loc2) * 1000
+
+                if y_model % 2 == 0:
+                    x_model = int(round(dist_from_left/self.hex_width)) * 2
+                else:
+                    x_model = int(round((dist_from_left + self.hex_width / 2) / self.hex_width)) * 2 + 1
+
+                # get hex
+                hex = self.tiles.get((x_model, y_model))
+
+                # fix corners
+                hex_coords = self.get_real_coords(hex)
+                distance_to_center = hs.haversine((y_real, x_real), hex_coords)
+                neighbours = hex.neighbours()
+
+                for neighbour in neighbours:
+                    neighbour_coords = self.get_real_coords(neighbour)
+                    distance_to_neighbour = hs.haversine((y_real, x_real), (neighbour.x, y_model))
+                    if distance_to_center > distance_to_neighbour:
+                        hex = neighbour
+                        break
+
+                # put hexagon in dictionary
+                self.tree_hexagons[values[3]] = hex
 
 def rectangle_corners(center, w, h):
     """Helper function to calculate the dimensions of the pixel area."""
@@ -125,3 +201,5 @@ def rectangle_corners(center, w, h):
         (x +w/2, y + h/2),
         (x -w /2, y + h/2)
     ]
+
+

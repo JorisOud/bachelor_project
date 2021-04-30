@@ -130,7 +130,7 @@ class Map():
 
         return custom_hex.get_landcover()
 
-    def get_real_coords(self, hex):
+    def get_gps_coords(self, hex):
         """Returns the real coordinates of the center of a hexagon."""
 
         # x coordinate
@@ -145,50 +145,60 @@ class Map():
 
         return (y, x)
 
-    def load_ribbons(self, file_name):
-        """file: csv file with tree coordinates.
-        left_top_coords: real world coordinates of helft top hexagon."""
+    def load_ribbons(self, file_path):
+        """Loads all the ribbons from the specified file into the model on
+        the basis of their gps coordinates.
+
+        attribute:
+        file_path: csv file with tree coordinates."""
 
         self.tree_hexagons = {}
 
-        with open(file_name) as file:
+        with open(file_path) as file:
             next(file)
+
+            # put each hexagon with a ribbon in it into a dictionary
             for line in file:
+                # get the gps coordinates of a ribbon
                 values = line.split(",")
-                y_real, x_real = float(values[0]), float(values[1])
+                y_gps, x_gps = float(values[0]), float(values[1])
 
-                # determine y coordinate
+                # determine y coordinate of the corresponding hexagon in model
                 loc1 = self.top_left_coords
-                loc2 = (y_real, self.top_left_coords[1])
+                loc2 = (y_gps, self.top_left_coords[1])
                 dist_from_top = hs.haversine(loc1, loc2) * 1000
-                y_model = int(round(dist_from_top / self.hex_height * 3/4))
+                y_model = int(round(dist_from_top / (self.hex_height * 3/4)))
 
-                # determine x coordinate
-                loc2 = (self.top_left_coords[0], x_real)
+                # determine x coordinate of the corresponding hexagon in model
+                loc2 = (self.top_left_coords[0], x_gps)
                 dist_from_left = hs.haversine(loc1, loc2) * 1000
 
                 if y_model % 2 == 0:
                     x_model = int(round(dist_from_left/self.hex_width)) * 2
                 else:
-                    x_model = int(round((dist_from_left + self.hex_width / 2) / self.hex_width)) * 2 + 1
+                    x_model = int(round((dist_from_left + self.hex_width / 2) /
+                                    self.hex_width)) * 2 + 1
 
-                # get hex
+                # get hex object form dictionary
                 hex = self.tiles.get((x_model, y_model))
 
-                # fix corners
-                hex_coords = self.get_real_coords(hex)
-                distance_to_center = hs.haversine((y_real, x_real), hex_coords)
+                # make sure the ribbon is placed in the right hex, because the x
+                # and y of the model are determined with squares instead of hexes
+                hex_coords = self.get_gps_coords(hex)
+                distance_to_center = hs.haversine((y_gps, x_gps), hex_coords)
                 neighbours = hex.neighbours()
 
                 for neighbour in neighbours:
-                    neighbour_coords = self.get_real_coords(neighbour)
-                    distance_to_neighbour = hs.haversine((y_real, x_real), (neighbour.x, y_model))
+                    neighbour_coords = self.get_gps_coords(neighbour)
+                    distance_to_neighbour = hs.haversine((y_gps, x_gps),
+                                                    (neighbour.x, y_model))
                     if distance_to_center > distance_to_neighbour:
                         hex = neighbour
                         break
 
                 # put hexagon in dictionary
                 self.tree_hexagons[values[3]] = hex
+
 
 def rectangle_corners(center, w, h):
     """Helper function to calculate the dimensions of the pixel area."""

@@ -4,8 +4,8 @@ import haversine as hs
 import hexutil
 import numpy as np
 
-from .hex import Hex_custom
 from collections import Counter
+from .hex import Hex_custom
 from PIL import Image
 
 
@@ -20,13 +20,27 @@ class Map():
 
     Attributes:
     |land_covers: {Int: [RGB, String]}
-    |tiles: {Hex: Int}
+    |top_left_coords: (Float, Float)
+    |top_right_coords: (Float, Float)
+    |bottom_left_coords: (Float, Float)
+    |bottom_right_coords: (Float, Float)
+    |hex_width: Float
+    |hex_size: Float
+    |hex_height: Float
     |num_hor: Int
     |num_ver: Int
+    |tiles: {Hex: Int}
+    |tree_hexagons: {String: Hex}
 
     Methods:
     |get_tile(Hex): returns the land cover if exists, else defaults
     |   to 5 (no land cover).
+    |get_gps_coords(Hex): returns the gps coords of the center of the
+    |   hex.
+    |load_ribbons(File): loads all the ribbons based on the tree number
+    |   and converting its corresponding gps coordinate to a hex location.
+    |rectangle_corners(center, w, h): helper function to calculate the
+    |   rectangular dimensions of the pixel area.
     """
     def __init__(self, path):
         """Requires a path to a 24-bit PNG image."""
@@ -61,7 +75,7 @@ class Map():
         num_hor = int(im.size[0] / w) + 1
         num_ver = int(im.size[1] / h * 4 / 3) + 1
 
-        # save hexagon dementions in meters
+        # save hexagon dimensions in meters
         self.hex_width = distance / num_hor
         self.hex_size = self.hex_width / math.sqrt(3)
         self.hex_height = 2 * self.hex_size
@@ -117,12 +131,8 @@ class Map():
         # THIS IS TO TEST LOADING TREES
         self.load_ribbons("data/boomlokaties_maandagochtend.csv")
 
-        for tree in self.tree_hexagons.values():
-            tree.add_landcover(3)
-
     def get_tile(self, hexagon):
         """Returns the land cover of the hexagon."""
-
         custom_hex = self.tiles.get((hexagon.x, hexagon.y))
 
         if not custom_hex:
@@ -132,7 +142,6 @@ class Map():
 
     def get_gps_coords(self, hex):
         """Returns the real coordinates of the center of a hexagon."""
-
         # x coordinate
         x_difference = self.top_right_coords[1] - self.top_left_coords[1]
         x_difference_hex = x_difference / self.num_hor
@@ -140,7 +149,7 @@ class Map():
 
         # y coordinate
         y_difference = self.top_left_coords[0] - self.bottom_left_coords[0]
-        y_difference_hex = y_difference /self.num_ver
+        y_difference_hex = y_difference / self.num_ver
         y = self.top_left_coords[0] - hex.y * y_difference_hex
 
         return (y, x)
@@ -148,12 +157,8 @@ class Map():
     def load_ribbons(self, file_path):
         """Loads all the ribbons from the specified file into the model on
         the basis of their gps coordinates.
-
-        attribute:
-        file_path: csv file with tree coordinates."""
-
+        """
         self.tree_hexagons = {}
-
         with open(file_path) as file:
             next(file)
 
@@ -211,5 +216,3 @@ def rectangle_corners(center, w, h):
         (x +w/2, y + h/2),
         (x -w /2, y + h/2)
     ]
-
-

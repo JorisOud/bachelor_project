@@ -100,12 +100,14 @@ class Model(QtWidgets.QMainWindow):
         run_list_box.addWidget(self.run_list)
 
         # Creates a button that loads a run from a file.
-        self.load_from_file_button = QtWidgets.QPushButton("Load Run(s) from File(s)", self)
+        self.load_from_file_button = QtWidgets.QPushButton(
+            "Load Run(s) from File(s)", self)
         self.load_from_file_button.clicked.connect(self.load_run_from_file)
         run_list_box.addWidget(self.load_from_file_button)
 
         # Creates a button that writes the run hexagons to a csv file.
-        self.save_to_file_button = QtWidgets.QPushButton("Save Run to File", self)
+        self.save_to_file_button = QtWidgets.QPushButton(
+            "Save Run to File", self)
         self.save_to_file_button.clicked.connect(self.save_run_to_file)
         self.save_to_file_button.clicked.connect(self.grid.save_current_run)
         self.save_to_file_button.clicked.connect(self.run_list.clearSelection)
@@ -126,7 +128,8 @@ class Model(QtWidgets.QMainWindow):
         # Creates the button that saves the current run.
         self.save_run_button = QtWidgets.QPushButton("Save Run", self)
         self.save_run_button.setStyleSheet("background-color : green")
-        self.save_run_button.clicked.connect(lambda: self.grid.save_current_run(self.run_name_edit.text()))
+        self.save_run_button.clicked.connect(lambda: self.grid.save_current_run(
+            self.run_name_edit.text()))
         self.save_run_button.clicked.connect(self.run_list.clearSelection)
         self.save_run_button.clicked.connect(self.save_to_file_button.hide)
         self.save_run_button.hide()
@@ -188,6 +191,7 @@ class Model(QtWidgets.QMainWindow):
         selected_run = self.run_list.selectedItems()[0].text()
         selected_run_id = int(selected_run.partition(":")[0])
         run_to_be_saved = self.grid.runs[selected_run_id]
+        optimal_run = self.grid.optimal_runs[selected_run_id]
 
         file_name, _ = QtWidgets.QFileDialog.getSaveFileName(
             self, "Save Run to File", f"data/runs/{run_to_be_saved.name}",
@@ -204,32 +208,63 @@ class Model(QtWidgets.QMainWindow):
             csv_writer = writer(file)
 
             # Writes the header.
-            csv_writer.writerow(["x", "y", "lat", "long", "ribbon"])
+            csv_writer.writerow(["x", "y", "lat", "long", "ribbon",
+                                 "x", "y", "lat", "long", "ribbon"])
 
             visited_trees = []
-            for hex in run_to_be_saved.hexagons:
-                gps_coords = self.grid.map.get_gps_coords(hex)
+            optimal_visited_trees = []
+            for idx, hex in enumerate(run_to_be_saved.get_hexagons()):
+                # Values of the run.
+                hex_gps_coords = self.grid.map.get_gps_coords(hex)
+                hex_x = hex.x
+                hex_y = hex.y
+                hex_lat = hex_gps_coords[0]
+                hex_long = hex_gps_coords[1]
+                ribbon_collected = ""
 
                 # Adds tree number if ribbon collected.
-                if hex in self.grid.map.tree_hexagons.values():
-                    tree_hexes = self.grid.map.tree_hexagons.items()
-                    tree_number = [k for k, v in tree_hexes if v == hex][0]
-
+                tree_number = self.grid.map.get_tree_number(hex)
+                if tree_number:
                     # Only writes tree number if ribbon has not been collected before.
                     if tree_number not in visited_trees:
-                        csv_writer.writerow(
-                            [hex.x, hex.y, gps_coords[0], gps_coords[1], tree_number])
+                        ribbon_collected = tree_number
                         visited_trees.append(tree_number)
-                    else:
-                        csv_writer.writerow(
-                            [hex.x, hex.y, gps_coords[0], gps_coords[1]])
+
+                # Values of the optimal run.
+                if idx < len(optimal_run.get_hexagons()):
+                    optimal_hex = optimal_run.get_hexagons()[idx]
+                    optimal_hex_gps_coords = self.grid.map.get_gps_coords(optimal_hex)
+                    optimal_hex_x = optimal_hex.x
+                    optimal_hex_y = optimal_hex.y
+                    optimal_hex_lat = optimal_hex_gps_coords[0]
+                    optimal_hex_long = optimal_hex_gps_coords[1]
+                    optimal_ribbon_collected = ""
+
+                    tree_number = self.grid.map.get_tree_number(optimal_hex)
+                    if tree_number:
+                        # Only writes tree number if ribbon has not been collected before.
+                        if tree_number not in optimal_visited_trees:
+                            optimal_ribbon_collected = tree_number
+                            optimal_visited_trees.append(tree_number)
                 else:
-                    csv_writer.writerow(
-                        [hex.x, hex.y, gps_coords[0], gps_coords[1]])
+                    optimal_hex_x = ""
+                    optimal_hex_y = ""
+                    optimal_hex_lat = ""
+                    optimal_hex_long = ""
+                    optimal_ribbon_collected = ""
+
+                csv_writer.writerow([hex_x, hex_y,
+                                     hex_lat, hex_long,
+                                     ribbon_collected,
+                                     optimal_hex_x, optimal_hex_y,
+                                     optimal_hex_lat, optimal_hex_long,
+                                     optimal_ribbon_collected])
 
             # Adds a footer with the total length of the run.
             csv_writer.writerow(
-                ["length", len(run_to_be_saved.hexagons) * self.grid.map.hex_width])
+                ["length", len(run_to_be_saved.get_hexagons()) * self.grid.map.hex_width,
+                "", "", "",
+                "optimal length", len(optimal_run.get_hexagons()) * self.grid.map.hex_width])
 
         self.save_to_file_button.hide()
 
@@ -241,12 +276,12 @@ class Model(QtWidgets.QMainWindow):
             QtCore.Qt.MatchStartsWith)
 
         # Removes, updates or adds the run entry.
-        if run.run_id < 0:
+        if run.run_id < 0 and matched_run:
             idx = self.run_list.indexFromItem(matched_run[0])
             self.run_list.takeItem(idx.row())
         elif matched_run:
             matched_run[0].setText(f"{run.run_id}: {run.name}, {len(run.hexagons)} m")
-        else:
+        elif run.run_id > 0:
             list_name = f"{run.run_id}: {run.name}, {len(run.hexagons)} m"
             self.run_list.addItem(list_name)
 

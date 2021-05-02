@@ -35,6 +35,12 @@ class Map():
     Methods:
     |get_tile(Hex): returns the land cover if exists, else defaults
     |   to 5 (no land cover).
+    |get_tree_number(Hex): returns the tree number if the hexagon is a
+    | tree else returns False.
+    |is_passable(Hex): returns true or false depending on if the land
+    |   cover associated with the hexagon is passable.
+    |cost(Hex): returns the cost of passing through a hexagon based on
+    |   its land cover.
     |get_gps_coords(Hex): returns the gps coords of the center of the
     |   hex.
     |load_ribbons(File): loads all the ribbons based on the tree number
@@ -134,11 +140,41 @@ class Map():
     def get_tile(self, hexagon):
         """Returns the land cover of the hexagon."""
         custom_hex = self.tiles.get((hexagon.x, hexagon.y))
-
         if not custom_hex:
             return 5
 
         return custom_hex.get_landcover()
+
+    def get_tree_number(self, hexagon):
+        """Returns the tree number of the given hexagon if it is a tree."""
+        if hexagon not in self.tree_hexagons.values():
+            return False
+
+        tree_hexes = self.tree_hexagons.items()
+        tree_number = [k for k, v in tree_hexes if v == hexagon][0]
+
+        return tree_number
+
+    def is_passable(self, hexagon):
+        """Returns if the hexagon is allowed to be passed through."""
+        land_cover = self.get_tile(hexagon)
+        if land_cover == 3 or land_cover == 5:
+            return False
+
+        return True
+
+    def cost(self, hexagon):
+        """Calculates the cost for each land cover to pass through."""
+        land_cover = self.get_tile(hexagon)
+        # Grass
+        if land_cover == 1:
+            return 10
+        # Bushes
+        if land_cover == 2:
+            return 50
+        # Path
+        if land_cover == 4:
+            return 1
 
     def get_gps_coords(self, hex):
         """Returns the real coordinates of the center of a hexagon."""

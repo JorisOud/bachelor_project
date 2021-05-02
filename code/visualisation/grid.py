@@ -29,6 +29,7 @@ class Grid(QtWidgets.QWidget):
     |run_uid: Int
     |run_creation_mode: Bool
     |current_run_id: Int
+    |optimal_runs: {Int: Run}
 
     Methods:
     |load_run(run_label): loads the run with the id that is in the given
@@ -39,6 +40,8 @@ class Grid(QtWidgets.QWidget):
     |   run if allowed.
     |save_current_run(name): saves the current run to the current session.
     |delete_current_run(): deletes the current run from the current session.
+    |create_optimal_run(run_id): creates a run with optimal distances
+    |   between ribbons based on the ribbons collected in the given run.
     |mousePressEvent(event): selects or deselects the hexagon that has
     |   been clicked."
     |update_size(): resizes the widget according to the pixel location
@@ -54,7 +57,7 @@ class Grid(QtWidgets.QWidget):
     |paintEvent(event): draws the hexagons that fit in the window with
     |   a colour based on their land cover.
     """
-    # Signals for the mainwindow widget to update GUI elements.
+    # Signals for the mainwindow widget to update its GUI elements.
     selected = QtCore.pyqtSignal(object)
     run_creation = QtCore.pyqtSignal(bool)
     run_list_update = QtCore.pyqtSignal(object)
@@ -91,6 +94,9 @@ class Grid(QtWidgets.QWidget):
         self.run_creation_mode = False
         self.current_run_id = 0
 
+        # Initialises functionality for optimal runs.
+        self.optimal_runs = {}
+
     def load_run(self, run_label):
         """Loads the run provided by the label of the GUI run list."""
         run_id = int(run_label.text().partition(':')[0])
@@ -117,6 +123,9 @@ class Grid(QtWidgets.QWidget):
             # Signals to the GUI's main window to load the run in the list.
             self.runs[self.run_uid] = new_run
             self.run_list_update.emit(new_run)
+
+            # Creates an optimal run for the loaded run.
+            self.create_optimal_run(self.run_uid)
 
             self.run_uid += 1
         else:
@@ -146,11 +155,18 @@ class Grid(QtWidgets.QWidget):
         self.run_creation_mode = False
         self.run_creation.emit(False)
 
+        # Creates an optimal run for the saved run.
+        self.create_optimal_run(self.current_run_id)
+
         saved_run = self.runs[self.current_run_id]
         if name:
             saved_run.name = name
         # Signals to GUI to add the (edited) run to the list.
         self.run_list_update.emit(saved_run)
+
+        # Sets the selected hexagon to the last hexagon of the run.
+        self.selected_hexagon = saved_run.get_hexagons()[-1]
+        self.selected.emit(self.selected_hexagon)
 
         self.repaint()
 
@@ -166,7 +182,45 @@ class Grid(QtWidgets.QWidget):
         self.run_list_update.emit(deleted_run)
 
         del self.runs[self.current_run_id]
+        self.optimal_runs.pop(self.current_run_id, None)
+
         self.repaint()
+
+    def create_optimal_run(self, run_id):
+        """Creates a run with optimal distances between ribbons
+        based on the ribbons collected in the given run.
+        """
+        run = self.runs[run_id]
+
+        # Collects the numbers of every tree visited in the run.
+        visited_trees = []
+        for hexagon in run.get_hexagons():
+            tree_number = self.map.get_tree_number(hexagon)
+            if tree_number and tree_number not in visited_trees:
+                visited_trees.append(tree_number)
+
+        optimal_run = Run(run_id)
+        # Sets starting position and the beginning of the optimal run.
+        current_position = run.get_hexagons()[0]
+        optimal_run.add_hexagon(current_position)
+
+        # Finds the optimal route beginning from the first hexagon to
+        # the first ribbon, and then every ribbon after.
+        for tree_number in visited_trees:
+            tree_hexagon = self.map.tree_hexagons[tree_number]
+            path = current_position.find_path(tree_hexagon,
+                                              self.map.is_passable,
+                                              self.map.cost)
+
+            # Adds every hexagon besides the first one to the optimal run.
+            for hexagon in path[1:]:
+                custom_hex = self.map.tiles[(hexagon.x, hexagon.y)]
+                optimal_run.add_hexagon(custom_hex)
+
+            # Sets the tree as the starting position for the next path.
+            current_position = tree_hexagon
+
+        self.optimal_runs[run_id] = optimal_run
 
     def mousePressEvent(self, event):
         """Selects or deselects the hexagon that has been clicked."""

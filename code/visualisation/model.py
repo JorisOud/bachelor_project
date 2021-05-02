@@ -1,5 +1,6 @@
 from csv import writer
 import re
+import os
 
 import hexutil
 
@@ -22,6 +23,7 @@ class Model(QtWidgets.QMainWindow):
     |scene: QGraphicsScene
     |view: QGraphicsView
     |grid: Grid
+    |menu_bar: QMenuBar
     |run_list: QListWidget
     |load_from_file_button: QPushButton
     |save_to_file_button: QPushButton
@@ -32,6 +34,8 @@ class Model(QtWidgets.QMainWindow):
     |create_run_button: QPushButton
 
     Methods:
+    |import_ribbons(action): activates the loading of the ribbons of
+    |   the selected file from the menu.
     |load_run_from_file(): loads a run or multiple runs from a csv file
     |   or multiple csv files.
     |save_run_to_file(): saves the selected run to a csv file.
@@ -82,10 +86,25 @@ class Model(QtWidgets.QMainWindow):
             QtGui.QKeySequence('Ctrl+-'), self)
         self.zoom_out_shortcut.activated.connect(self.zoom_out)
 
+        # Creates a menu top left.
+        menu_bar = self.menuBar()
+        file_menu = menu_bar.addMenu('File')
+
+        # Adds a import function to the menu to import tree locations.
+        import_menu = QtWidgets.QMenu('Import', self)
+        sorted_dir = sorted(os.scandir("data/tree_locations"),
+                            key=lambda e: e.name)
+        for entry in sorted_dir:
+            # Retrieves file name without path and extensions.
+            file_name = Path(entry.path).stem
+            import_menu.addAction(f"{file_name}")
+        import_menu.triggered.connect(self.import_ribbons)
+        file_menu.addMenu(import_menu)
+
         # Creates the dock widget on the right-hand side of the screen.
-        dock_widget = QtWidgets.QDockWidget('Options', self)
-        dock_widget.setFeatures(QtWidgets.QDockWidget.NoDockWidgetFeatures)
-        dock_widget.setFixedWidth(200)
+        self.dock_widget = QtWidgets.QDockWidget("No trees loaded.", self)
+        self.dock_widget.setFeatures(QtWidgets.QDockWidget.NoDockWidgetFeatures)
+        self.dock_widget.setFixedWidth(200)
 
         # Creates the widget with the list with options such as saving a run.
         multi_widget = QtWidgets.QWidget()
@@ -156,8 +175,16 @@ class Model(QtWidgets.QMainWindow):
         layout.addWidget(self.delete_run_button)
         layout.addWidget(self.create_run_button)
         multi_widget.setLayout(layout)
-        dock_widget.setWidget(multi_widget)
-        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock_widget)
+        self.dock_widget.setWidget(multi_widget)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.dock_widget)
+
+    @QtCore.pyqtSlot(QtWidgets.QAction)
+    def import_ribbons(self, action):
+        """Activates the loading of the ribbons of the selected file."""
+        file_name = action.text()
+        self.dock_widget.setWindowTitle(f"{file_name}")
+        self.grid.map.load_ribbons(f"data/tree_locations/{file_name}.csv")
+        self.grid.repaint()
 
     def load_run_from_file(self):
         """Loads a run or multiple runs from a file or multiple csv files."""
@@ -181,7 +208,7 @@ class Model(QtWidgets.QMainWindow):
                     hex = self.grid.map.tiles[(hex_x, hex_y)]
                     hexagons.append(hex)
 
-                # Retrieve file name without path and extensions.
+                # Retrieves file name without path and extensions.
                 file_name = Path(file.name).stem
 
                 self.grid.create_run(file_name, hexagons)
@@ -305,9 +332,14 @@ class Model(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(object)
     def update_selection(self, hexagon):
         """Updates the GUI options when a hexagon is (de)selected."""
+        # Displays the tree number if the hexagon contains a ribbon.
+        tree = self.grid.map.get_tree_number(hexagon)
+        if not tree:
+            tree = ""
+
         if hexagon:
             self.selection_label.setText(
-                f"Selected hexagon:\nx={hexagon.x}, y={hexagon.y}")
+                f"Selected hexagon:\nx={hexagon.x}, y={hexagon.y}\n{tree}")
 
             # Adds or removes the hexagon if a run is being created.
             if self.grid.run_creation_mode:

@@ -181,6 +181,10 @@ class Grid(QtWidgets.QWidget):
         deleted_run.run_id = -deleted_run.run_id
         self.run_list_update.emit(deleted_run)
 
+        # Sets the selected hexagon to the last hexagon of the run.
+        self.selected_hexagon = deleted_run.get_hexagons()[-1]
+        self.selected.emit(self.selected_hexagon)
+
         del self.runs[self.current_run_id]
         self.optimal_runs.pop(self.current_run_id, None)
 
@@ -316,11 +320,12 @@ class Grid(QtWidgets.QWidget):
                     painter.drawPolygon(polygon)
 
             # Draws a dot in every hexagon that contains a ribbon.
-            for tree_number in self.map.tree_hexagons:
-                hexagon = self.map.tree_hexagons[tree_number]
-                location = hexgrid.center(hexagon)
-                painter.setPen(QtGui.QPen(QtGui.QColor('red'), 4))
-                painter.drawPoint(location[0], location[1])
+            if self.map.tree_hexagons:
+                for tree_number in self.map.tree_hexagons:
+                    hexagon = self.map.tree_hexagons[tree_number]
+                    location = hexgrid.center(hexagon)
+                    painter.setPen(QtGui.QPen(QtGui.QColor('red'), 4))
+                    painter.drawPoint(location[0], location[1])
 
             # Draws the outline of the selected hexagon.
             if self.selected_hexagon:
@@ -338,6 +343,5 @@ class Grid(QtWidgets.QWidget):
                     painter.setPen(QtGui.QPen(QtGui.QColor('red'), 2))
                     for i, corner in enumerate(corners):
                         painter.drawLine(corners[-1 + i], corner)
-
         finally:
             painter.end()

@@ -35,8 +35,8 @@ class Map():
     Methods:
     |get_tile(Hex): returns the land cover if exists, else defaults
     |   to 5 (no land cover).
-    |get_tree_number(Hex): returns the tree number if the hexagon is a
-    | tree else returns False.
+    |get_tree_number(Hex): returns the tree number if the hexagon has a
+    | ribbon else returns False.
     |is_passable(Hex): returns true or false depending on if the land
     |   cover associated with the hexagon is passable.
     |cost(Hex): returns the cost of passing through a hexagon based on
@@ -134,8 +134,7 @@ class Map():
                 new_hex.add_landcover(land_cover)
                 self.tiles[(col * 2 + 1, row)] = new_hex
 
-        # THIS IS TO TEST LOADING TREES
-        self.load_ribbons("data/boomlokaties_maandagochtend.csv")
+        self.tree_hexagons = {}
 
     def get_tile(self, hexagon):
         """Returns the land cover of the hexagon."""
@@ -146,7 +145,7 @@ class Map():
         return custom_hex.get_landcover()
 
     def get_tree_number(self, hexagon):
-        """Returns the tree number of the given hexagon if it is a tree."""
+        """Returns the tree number of the given hexagon if it has a ribbon."""
         if hexagon not in self.tree_hexagons.values():
             return False
 
@@ -194,7 +193,7 @@ class Map():
         """Loads all the ribbons from the specified file into the model on
         the basis of their gps coordinates.
         """
-        self.tree_hexagons = {}
+        self.tree_hexagons.clear()
         with open(file_path) as file:
             next(file)
 
@@ -238,7 +237,7 @@ class Map():
                         break
 
                 # put hexagon in dictionary
-                self.tree_hexagons[values[3]] = hex
+                self.tree_hexagons[values[2]] = hex
 
 
 def rectangle_corners(center, w, h):

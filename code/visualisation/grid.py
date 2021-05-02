@@ -30,6 +30,7 @@ class Grid(QtWidgets.QWidget):
     |run_creation_mode: Bool
     |current_run_id: Int
     |optimal_runs: {Int: Run}
+    |path: []
 
     Methods:
     |load_run(run_label): loads the run with the id that is in the given
@@ -42,8 +43,8 @@ class Grid(QtWidgets.QWidget):
     |delete_current_run(): deletes the current run from the current session.
     |create_optimal_run(run_id): creates a run with optimal distances
     |   between ribbons based on the ribbons collected in the given run.
-    |mousePressEvent(event): selects or deselects the hexagon that has
-    |   been clicked."
+    |mousePressEvent(event): handles mouse presses to select and
+    |   deselect hexagons with different functionalities.
     |update_size(): resizes the widget according to the pixel location
     |   of the hexagon in the bottom right corner.
     |hexagon_at_center(): returns the hexagon at the middle of the window.
@@ -96,6 +97,7 @@ class Grid(QtWidgets.QWidget):
 
         # Initialises functionality for optimal runs.
         self.optimal_runs = {}
+        self.path = []
 
     def load_run(self, run_label):
         """Loads the run provided by the label of the GUI run list."""
@@ -168,6 +170,9 @@ class Grid(QtWidgets.QWidget):
         self.selected_hexagon = saved_run.get_hexagons()[-1]
         self.selected.emit(self.selected_hexagon)
 
+        # Clears the optimal path.
+        self.path = 0
+
         self.repaint()
 
     def delete_current_run(self):
@@ -187,6 +192,9 @@ class Grid(QtWidgets.QWidget):
 
         del self.runs[self.current_run_id]
         self.optimal_runs.pop(self.current_run_id, None)
+
+        # Clears the optimal path.
+        self.path = 0
 
         self.repaint()
 
@@ -227,16 +235,51 @@ class Grid(QtWidgets.QWidget):
         self.optimal_runs[run_id] = optimal_run
 
     def mousePressEvent(self, event):
-        """Selects or deselects the hexagon that has been clicked."""
+        """Handles mouse presses to select and deselect hexagons.
+
+        The user can select hexagons by left-clicking the hexagon.
+        If the user has already selected the clicked hexagon or
+        clicked on blank space the hexagon will be deselected. During
+        the creation of a run the user can right-click to paint a
+        optimal path. If the user left-clicks on the last hexagon of
+        this path, all the hexagons of the optimal path will be added to
+        the run. If the user right-clicks on the last hexagon, the
+        optimal path will be cleared.
+        """
         clicked_hexagon = self.hexagon_of_pos(event.pos())
         hex = self.map.get_tile(clicked_hexagon)
-        # Selects if new hexagon, else deselects the current selection.
-        if (self.selected_hexagon != clicked_hexagon and hex != 5):
-            self.selected_hexagon = self.map.tiles[clicked_hexagon.x, clicked_hexagon.y]
-        else:
-            self.selected_hexagon = 0
 
-        self.selected.emit(self.selected_hexagon)
+        # Left click is selection, right click is selecting optimal path.
+        if event.button() == 1:
+            if self.path and clicked_hexagon == self.path[-1]:
+                # Adds the hexagons of the optimal path to the run.
+                for hexagon in self.path:
+                    custom_hex = self.map.tiles[(hexagon.x, hexagon.y)]
+                    self.modify_current_run(custom_hex)
+                self.path = []
+                self.selected_hexagon = 0
+            elif self.selected_hexagon != clicked_hexagon and hex != 5:
+                # Selects the hexagon that has been clicked.
+                self.selected_hexagon = self.map.tiles[clicked_hexagon.x, clicked_hexagon.y]
+            else:
+                # Deselects the selection.
+                self.selected_hexagon = 0
+
+            self.selected.emit(self.selected_hexagon)
+        elif event.button() == 2:
+            if self.run_creation_mode:
+                # Removes the current optimal path or creates one.
+                if self.path and self.path[-1] == clicked_hexagon:
+                    self.path = []
+                else:
+                    current_run = self.runs[self.current_run_id]
+                    hex = current_run.get_hexagons()[-1]
+                    self.path = hex.find_path(clicked_hexagon,
+                                            self.map.is_passable,
+                                            self.map.cost)
+
+                    self.path.pop(0)
+
         self.repaint()
 
     def update_size(self):
@@ -330,11 +373,19 @@ class Grid(QtWidgets.QWidget):
             # Draws the outline of the selected hexagon.
             if self.selected_hexagon:
                 corners = [QtCore.QPoint(*corner) for corner in hexgrid.corners(self.selected_hexagon)]
-                painter.setPen(QtGui.QPen(QtGui.QColor('magenta'), 2))
+                painter.setPen(QtGui.QPen(QtGui.QColor('white'), 2))
                 for i, corner in enumerate(corners):
                     painter.drawLine(corners[-1 + i], corner)
 
-            # Draws the current run in creation.
+            # Fraws the outlines of the hexagons of the optimal path.
+            if self.path:
+                for hex in self.path:
+                    corners = [QtCore.QPoint(*corner) for corner in hexgrid.corners(hex)]
+                    painter.setPen(QtGui.QPen(QtGui.QColor('magenta'), 2))
+                    for i, corner in enumerate(corners):
+                        painter.drawLine(corners[-1 + i], corner)
+
+            # Draws the outlines of the hexagons of the current run in creation.
             if self.run_creation_mode:
                 current_run = self.runs[self.current_run_id]
                 for coords in current_run.get_hexagons():

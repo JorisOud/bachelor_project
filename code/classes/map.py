@@ -183,10 +183,10 @@ class Map():
         land_cover = self.get_tile(hexagon)
         # Grass
         if land_cover == 1:
-            return 2
+            return 1.5
         # Bushes
         if land_cover == 2:
-            return 50
+            return 10
         # Path
         if land_cover == 4:
             return 1

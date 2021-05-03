@@ -31,6 +31,8 @@ class Grid(QtWidgets.QWidget):
     |current_run_id: Int
     |optimal_runs: {Int: Run}
     |path: []
+    |toggle_fov: Bool
+    |fov: {Hex: Int}
 
     Methods:
     |load_run(run_label): loads the run with the id that is in the given
@@ -43,6 +45,8 @@ class Grid(QtWidgets.QWidget):
     |delete_current_run(): deletes the current run from the current session.
     |create_optimal_run(run_id): creates a run with optimal distances
     |   between ribbons based on the ribbons collected in the given run.
+    |update_fov(Hex): sets the current fov to all tiles seen by the
+    |   given hexagon and returns the tree numbers that are seen in the fov.
     |mousePressEvent(event): handles mouse presses to select and
     |   deselect hexagons with different functionalities.
     |update_size(): resizes the widget according to the pixel location
@@ -98,6 +102,10 @@ class Grid(QtWidgets.QWidget):
         # Initialises functionality for optimal runs.
         self.optimal_runs = {}
         self.path = []
+
+        # Initialises fov functionality.
+        self.toggle_fov = False
+        self.fov = []
 
     def load_run(self, run_label):
         """Loads the run provided by the label of the GUI run list."""
@@ -234,6 +242,25 @@ class Grid(QtWidgets.QWidget):
 
         self.optimal_runs[run_id] = optimal_run
 
+    def update_fov(self, hexagon):
+        """Sets the current fov to all tiles seen by the given hexagon
+        and returns the tree numbers that are seen in the fov.
+        """
+        self.fov.clear()
+        self.fov = hexagon.field_of_view(self.map.is_transparent, max_distance=10)
+        # Checks if a tree is seen from the given hexagon.
+        seen_trees = []
+        for hex in self.fov:
+            custom_hex = self.map.tiles[(hex.x, hex.y)]
+            tree_number = self.map.get_tree_number(custom_hex)
+            # Only adds tree number if not seen before.
+            if tree_number:
+                seen_trees.append(tree_number)
+
+        return seen_trees
+
+        self.repaint()
+
     def mousePressEvent(self, event):
         """Handles mouse presses to select and deselect hexagons.
 
@@ -261,6 +288,7 @@ class Grid(QtWidgets.QWidget):
             elif self.selected_hexagon != clicked_hexagon and hex != 5:
                 # Selects the hexagon that has been clicked.
                 self.selected_hexagon = self.map.tiles[clicked_hexagon.x, clicked_hexagon.y]
+                self.update_fov(self.selected_hexagon)
             else:
                 # Deselects the selection.
                 self.selected_hexagon = 0
@@ -392,6 +420,14 @@ class Grid(QtWidgets.QWidget):
                     hexagon = self.map.tiles[coords]
                     corners = [QtCore.QPoint(*corner) for corner in hexgrid.corners(hexagon)]
                     painter.setPen(QtGui.QPen(QtGui.QColor('red'), 2))
+                    for i, corner in enumerate(corners):
+                        painter.drawLine(corners[-1 + i], corner)
+
+            # Draws the outline of the fov if toggled on.
+            if self.fov and self.toggle_fov:
+                for hex in self.fov:
+                    corners = [QtCore.QPoint(*corner) for corner in hexgrid.corners(hex)]
+                    painter.setPen(QtGui.QPen(QtGui.QColor('yellow'), 2))
                     for i, corner in enumerate(corners):
                         painter.drawLine(corners[-1 + i], corner)
         finally:

@@ -41,6 +41,7 @@ class Map():
     |   cover associated with the hexagon is passable.
     |cost(Hex): returns the cost of passing through a hexagon based on
     |   its land cover.
+    |is_transparent(Hex): returns whether the hexagon is transparent or not.
     |get_gps_coords(Hex): returns the gps coords of the center of the
     |   hex.
     |load_ribbons(File): loads all the ribbons based on the tree number
@@ -174,6 +175,19 @@ class Map():
         # Path
         if land_cover == 4:
             return 1
+
+    def is_transparent(self, hexagon):
+        """Returns whether the hexagon is transparent or not."""
+        if self.get_tile(hexagon) == 5:
+            return False
+
+        # Tiles bordering the edge are not transparent.
+        neighbours = hexagon.neighbours()
+        for neighbour in neighbours:
+            if self.get_tile(neighbour) == 5:
+                return False
+
+        return True
 
     def get_gps_coords(self, hex):
         """Returns the real coordinates of the center of a hexagon."""

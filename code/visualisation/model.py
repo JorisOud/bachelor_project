@@ -45,6 +45,8 @@ class Model(QtWidgets.QMainWindow):
     |   'delete run' buttons based on the run creation state.
     |update_selection(Hex): updates the GUI options when a hexagon is
     |   (de)selected.
+    |keyPressEvent(event): handles key presses for functions such as
+    |   toggling FOV on and off.
     |resizeEvent(event): instructs to update grid's dimensions when
     |   resized.
     |window_change(): changes the grid's visible window's dimensions.
@@ -235,11 +237,17 @@ class Model(QtWidgets.QMainWindow):
             csv_writer = writer(file)
 
             # Writes the header.
-            csv_writer.writerow(["x", "y", "lat", "long", "ribbon",
-                                 "x", "y", "lat", "long", "ribbon"])
+            csv_writer.writerow(["x", "y",
+                                 "lat", "long",
+                                 "ribbon seen", "ribbon collected",
+                                 "x", "y",
+                                 "lat", "long",
+                                 "ribbon seen", "ribbon collected"])
 
             visited_trees = []
+            seen_trees = []
             optimal_visited_trees = []
+            optimal_seen_trees = []
             for idx, hex in enumerate(run_to_be_saved.get_hexagons()):
                 # Values of the run.
                 hex_gps_coords = self.grid.map.get_gps_coords(hex)
@@ -247,51 +255,73 @@ class Model(QtWidgets.QMainWindow):
                 hex_y = hex.y
                 hex_lat = hex_gps_coords[0]
                 hex_long = hex_gps_coords[1]
+                ribbon_seen = ""
                 ribbon_collected = ""
 
-                # Adds tree number if ribbon collected.
+                # Onlydds tree number if not seen before.
+                visible_trees = self.grid.update_fov(hex)
+                for tree in visible_trees:
+                    if tree not in seen_trees:
+                        ribbon_seen += f"{tree} "
+                        seen_trees.append(tree)
+
+                # Only writes tree number if ribbon has not been collected before.
                 tree_number = self.grid.map.get_tree_number(hex)
                 if tree_number:
-                    # Only writes tree number if ribbon has not been collected before.
                     if tree_number not in visited_trees:
                         ribbon_collected = tree_number
                         visited_trees.append(tree_number)
 
-                # Values of the optimal run.
                 if idx < len(optimal_run.get_hexagons()):
+                    # Values of the optimal run.
                     optimal_hex = optimal_run.get_hexagons()[idx]
                     optimal_hex_gps_coords = self.grid.map.get_gps_coords(optimal_hex)
                     optimal_hex_x = optimal_hex.x
                     optimal_hex_y = optimal_hex.y
                     optimal_hex_lat = optimal_hex_gps_coords[0]
                     optimal_hex_long = optimal_hex_gps_coords[1]
+                    optimal_ribbon_seen = ""
                     optimal_ribbon_collected = ""
 
+                    # Adds tree number if not seen before.
+                    visible_trees = self.grid.update_fov(optimal_hex)
+                    for tree in visible_trees:
+                        if tree not in optimal_seen_trees:
+                            optimal_ribbon_seen += f"{tree} "
+                            optimal_seen_trees.append(tree)
+
+                    # Only writes tree number if ribbon has not been collected before.
                     tree_number = self.grid.map.get_tree_number(optimal_hex)
                     if tree_number:
-                        # Only writes tree number if ribbon has not been collected before.
                         if tree_number not in optimal_visited_trees:
                             optimal_ribbon_collected = tree_number
                             optimal_visited_trees.append(tree_number)
+
+                    # Prints progress.
+                    print(f"{idx/len(run_to_be_saved.get_hexagons()) * 100}%")
+
                 else:
                     optimal_hex_x = ""
                     optimal_hex_y = ""
                     optimal_hex_lat = ""
                     optimal_hex_long = ""
+                    optimal_ribbon_seen = ""
                     optimal_ribbon_collected = ""
 
                 csv_writer.writerow([hex_x, hex_y,
                                      hex_lat, hex_long,
-                                     ribbon_collected,
+                                     ribbon_seen, ribbon_collected,
                                      optimal_hex_x, optimal_hex_y,
                                      optimal_hex_lat, optimal_hex_long,
-                                     optimal_ribbon_collected])
+                                     optimal_ribbon_seen, optimal_ribbon_collected])
 
             # Adds a footer with the total length of the run.
             csv_writer.writerow(
-                ["length", len(run_to_be_saved.get_hexagons()) * self.grid.map.hex_width,
-                "", "", "",
-                "optimal length", len(optimal_run.get_hexagons()) * self.grid.map.hex_width])
+                ["length", (len(run_to_be_saved.get_hexagons()) - 1) * self.grid.map.hex_width,
+                "", "", "", "",
+                "optimal length", (len(optimal_run.get_hexagons()) - 1) * self.grid.map.hex_width])
+
+            print("DONE")
 
         self.save_to_file_button.hide()
 
@@ -307,9 +337,9 @@ class Model(QtWidgets.QMainWindow):
             idx = self.run_list.indexFromItem(matched_run[0])
             self.run_list.takeItem(idx.row())
         elif matched_run:
-            matched_run[0].setText(f"{run.run_id}: {run.name}, {len(run.hexagons)} m")
+            matched_run[0].setText(f"{run.run_id}: {run.name}, {len(run.hexagons) - 1} m")
         elif run.run_id > 0:
-            list_name = f"{run.run_id}: {run.name}, {len(run.hexagons)} m"
+            list_name = f"{run.run_id}: {run.name}, {len(run.hexagons) - 1} m"
             self.run_list.addItem(list_name)
 
     @QtCore.pyqtSlot(bool)
@@ -349,6 +379,15 @@ class Model(QtWidgets.QMainWindow):
         else:
             self.selection_label.setText(f"Selected hexagon:\n")
             self.create_run_button.setEnabled(False)
+
+    def keyPressEvent(self, event):
+        """Handles key presses for functions such as toggling FOV."""
+        # Toggles fov if 'F' key is pressed.
+        if event.key() == 70:
+            if self.grid.toggle_fov:
+                self.grid.toggle_fov = False
+            else:
+                self.grid.toggle_fov = True
 
     def resizeEvent(self, event):
         """Instructs to update dimensions when window is resized."""

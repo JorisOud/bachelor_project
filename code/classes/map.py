@@ -1,4 +1,5 @@
 import math
+import os
 
 import haversine as hs
 import hexutil
@@ -135,6 +136,20 @@ class Map():
                 new_hex.add_landcover(land_cover)
                 self.tiles[(col * 2 + 1, row)] = new_hex
 
+        # Loads corrections to the land covers to draw smaller paths.
+        with os.scandir("data/map_corrections") as files:
+            for file in files:
+                with open(file) as file:
+                    next(file)
+
+                    for line in file:
+                        values = line.split(",")
+                        hex_x = int(values[0])
+                        hex_y = int(values[1])
+
+                        hex = self.tiles[(hex_x, hex_y)]
+                        hex.add_landcover(4)
+
         self.tree_hexagons = {}
 
     def get_tile(self, hexagon):
@@ -182,10 +197,13 @@ class Map():
             return False
 
         # Tiles bordering the edge are not transparent.
-        neighbours = hexagon.neighbours()
-        for neighbour in neighbours:
-            if self.get_tile(neighbour) == 5:
-                return False
+        if (hexagon.x == 0 or hexagon.y == 0
+            or hexagon.x == self.num_hor * 2
+            or hexagon.y == self.num_ver):
+            neighbours = hexagon.neighbours()
+            for neighbour in neighbours:
+                if self.get_tile(neighbour) == 5:
+                    return False
 
         return True
 

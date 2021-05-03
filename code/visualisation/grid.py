@@ -251,11 +251,14 @@ class Grid(QtWidgets.QWidget):
         # Checks if a tree is seen from the given hexagon.
         seen_trees = []
         for hex in self.fov:
-            custom_hex = self.map.tiles[(hex.x, hex.y)]
-            tree_number = self.map.get_tree_number(custom_hex)
-            # Only adds tree number if not seen before.
-            if tree_number:
-                seen_trees.append(tree_number)
+            custom_hex = self.map.tiles.get((hex.x, hex.y))
+            if not custom_hex:
+                continue
+            else:
+                tree_number = self.map.get_tree_number(custom_hex)
+                # Only adds tree number if not seen before.
+                if tree_number:
+                    seen_trees.append(tree_number)
 
         return seen_trees
 
@@ -288,7 +291,8 @@ class Grid(QtWidgets.QWidget):
             elif self.selected_hexagon != clicked_hexagon and hex != 5:
                 # Selects the hexagon that has been clicked.
                 self.selected_hexagon = self.map.tiles[clicked_hexagon.x, clicked_hexagon.y]
-                self.update_fov(self.selected_hexagon)
+                if self.toggle_fov:
+                    self.update_fov(self.selected_hexagon)
             else:
                 # Deselects the selection.
                 self.selected_hexagon = 0
